@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const bodyParser = require("body-parser");
 const mySqlPool = require("./config/db");
+const path = require("path");
 const cors = require("cors");
 
 // Load environment variables from .env file
@@ -23,6 +24,9 @@ app.options("*", cors(globalCorsOptions)); // Pre-flight handling for all routes
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Static Files
+app.use("/public", express.static(path.join(__dirname, "public")));
 
 // Routers
 app.use("/api/v1/user", require("./routers/userRoute"));

@@ -42,5 +42,9 @@ const newUserEmail = async (data) => {
   }
 };
 
+const sendResetEmail = async (value) => {
+  console.log("sendResetEmail", value);
+};
+
 // Exporting the function for external use
-module.exports = { newUserEmail };
+module.exports = { newUserEmail, sendResetEmail };

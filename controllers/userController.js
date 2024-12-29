@@ -269,8 +269,7 @@ exports.updateUser = async (req, res) => {
     const { first_name, last_name, phone_number, date_of_birth, gender } =
       req.body;
 
-    // Execute the update query in the database
-    const [data] = await db.query(
+    await db.query(
       `UPDATE users SET first_name=?, last_name=?, phone_number=?, date_of_birth=?, gender=? WHERE id = ?`,
       [
         first_name || userPreData.first_name, // Use provided values or keep existing ones if not provided
@@ -282,14 +281,6 @@ exports.updateUser = async (req, res) => {
       ]
     );
 
-    // Check if any rows were affected (indicating a successful update)
-    if (data.affectedRows == 0) {
-      return res.status(500).send({
-        success: false,
-        message: "Error in updating user", // If no rows were affected, the update failed
-      });
-    }
-
     // Send success response after the update
     res.status(200).send({
       success: true,
@@ -300,6 +291,163 @@ exports.updateUser = async (req, res) => {
     res.status(500).send({
       success: false,
       message: "Error in updating user",
+      error: error.message,
+    });
+  }
+};
+
+// Change profile picture
+exports.changeProfilePicture = async (req, res) => {
+  try {
+    const userPreData = req.decodedUser; // Extract user data from the request
+    const images = req.file;
+
+    // Update the profile picture URL if a new image is uploaded
+    let profile_pic = userPreData?.profile_picture_url;
+    if (images && images.path) {
+      profile_pic = `http://localhost:5000/public/files/${images.filename}`;
+    }
+
+    // Update the user data in the database
+    await db.query(`UPDATE users SET profile_picture_url=? WHERE id = ?`, [
+      profile_pic,
+      userPreData.id,
+    ]);
+
+    res.status(200).send({
+      success: true,
+      message: "User updated successfully",
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Error in updating user",
+      error: error.message,
+    });
+  }
+};
+
+// user status
+exports.userStatusUpdate = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const { status } = req.body;
+    if (!status) {
+      return res.status(201).send({
+        success: false,
+        message: "status is requied in body",
+      });
+    }
+
+    const [data] = await db.query(`SELECT * FROM users WHERE id=? `, [userId]);
+    if (!data || data.length === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "No user found",
+      });
+    }
+
+    await db.query(`UPDATE users SET status=?  WHERE id =?`, [status, userId]);
+
+    res.status(200).send({
+      success: true,
+      message: "status updated successfully",
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Error in Update status ",
+      error: error.message,
+    });
+  }
+};
+
+// Update user password
+exports.updateUserPassword = async (req, res) => {
+  try {
+    const userID = req.decodedUser.id;
+    const { old_password, new_password } = req.body;
+
+    // Validate if both passwords are provided
+    if (!old_password || !new_password) {
+      return res.status(400).send({
+        success: false,
+        message:
+          "Old Password and New Password are required in the request body",
+      });
+    }
+
+    const checkPassword = req.decodedUser?.password;
+
+    // Check if the old password matches the stored password
+    const isMatch = await bcrypt.compare(old_password, checkPassword);
+    if (!isMatch) {
+      return res.status(403).json({
+        success: false,
+        error: "Your Old Password is incorrect",
+      });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+
+    // Update the password in the database
+    const [result] = await db.query(`UPDATE users SET password=? WHERE id=?`, [
+      hashedPassword,
+      userID,
+    ]);
+
+    // Validate if the update was successful
+    if (!result) {
+      return res.status(500).json({
+        success: false,
+        error: "Something went wrong while updating the password",
+      });
+    }
+
+    // Respond with success message
+    res.status(200).send({
+      success: true,
+      message: "User password updated successfully",
+    });
+  } catch (error) {
+    // Handle unexpected errors
+    res.status(500).send({
+      success: false,
+      message: "Error updating user password",
+      error: error.message,
+    });
+  }
+};
+
+// Delete user
+exports.deleteUser = async (req, res) => {
+  try {
+    const userID = req.params.id;
+
+    // Check if the user exists
+    const [data] = await db.query(`SELECT * FROM users WHERE id=?`, [userID]);
+    if (!data || data.length === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "No user found with the provided ID",
+      });
+    }
+
+    // Delete the user from the database
+    await db.query(`DELETE FROM users WHERE id=?`, [userID]);
+
+    // Respond with success message
+    res.status(200).send({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    // Handle unexpected errors
+    res.status(500).send({
+      success: false,
+      message: "Error deleting user",
       error: error.message,
     });
   }
